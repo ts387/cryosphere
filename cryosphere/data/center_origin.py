@@ -5,7 +5,7 @@ import os.path as osp
 from pathlib import Path
 import biotite.structure as bt_struc
 from biotite.structure.io.pdb import PDBFile
-from biotite.structure.io.pdbx import get_structure
+from biotite.structure.io.pdbx import CIFFile, get_structure
 
 
 #This code has been taken from the cryoStar repository:
@@ -60,12 +60,12 @@ def bt_read_pdb(file_path):
     atom_arr_stack: biotite AtomArrayStack containing all models
 
     """
-    file_ext = _get_file_ext(file_path)
-    if file_ext == ".pdb":
+    file_ext = _get_file_ext(file_path).lower()
+    if file_ext in (".pdb", ".ent"):
         f = PDBFile.read(file_path)
         atom_arr_stack = f.get_structure()
-    elif file_ext == ".cif":
-        f = PDBxFile.read(file_path)
+    elif file_ext in (".cif", ".mmcif"):
+        f = CIFFile.read(file_path)
         atom_arr_stack = get_structure(f)
     else:
         raise NotImplementedError("Only support .pdb, .cif extension.")

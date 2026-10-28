@@ -57,7 +57,6 @@ class Segmentation(torch.nn.Module):
 		self.residues_indexes = torch.tensor(residues_indexes, dtype=torch.float32, device=device)[:, None]
 		self.residues_chain = residues_chain
 		self.device = device
-		self.elu = torch.nn.ELU()
 		self.N_residues = len(self.residues_chain)
 
 		for part, part_config in segmentation_config.items():
@@ -117,7 +116,11 @@ class Segmentation(torch.nn.Module):
 
 			self.segmentation_prior = {}
 			for part, part_config in segmentation_config.items():
-				if "segmentation_prior" not in part_config or part_config["segmentation_prior"]["type"] == "uniform":
+				prior_config = part_config.get("segmentation_prior") or {}
+				prior_keys = [f"{v}_{s}" for v in ["means", "stds", "proportions"] for s in ["means", "stds"]]
+				#A prior is custom when its type says so, or when it gives prior values without a type.
+				prior_type = prior_config.get("type", "custom" if any(k in prior_config for k in prior_keys) else "uniform")
+				if prior_type == "uniform":
 				#Create a prior with values taken uniformly
 					self.segmentation_prior[part] = {}
 					N_segments = part_config["N_segm"]
@@ -144,11 +147,22 @@ class Segmentation(torch.nn.Module):
 					self.segmentation_prior[part]["proportions"] = {"mean":segmentation_proportions_mean, "std":segmentation_proportions_std}
 
 				else:
-					# Otherwise just take the prior values input by the user.
+					# Otherwise take the prior values input by the user, as tensors shaped like the uniform prior.
+					missing = [k for k in prior_keys if k not in prior_config]
+					if missing:
+						raise ValueError(f"The custom segmentation_prior of {part} is missing {missing}.")
 					self.segmentation_prior[part] = {}
 					for type_value in ["means", "stds", "proportions"]:
-						self.segmentation_prior[part][type_value] = {"mean":part_config["segmentation_prior"][f"{type_value}_means"], 
-						"std":part_config["segmentation_prior"][f"{type_value}_stds"]}
+						prior_values = {}
+						for stat in ["mean", "std"]:
+							values = np.array(prior_config[f"{type_value}_{stat}s"], dtype=np.float32).reshape(-1)
+							if values.size == 1:
+								#One value for all the segments.
+								values = np.full(part_config["N_segm"], values[0], dtype=np.float32)
+							if values.size != part_config["N_segm"]:
+								raise ValueError(f"segmentation_prior {type_value}_{stat}s of {part} must have one value or N_segm = {part_config['N_segm']} values.")
+							prior_values[stat] = torch.tensor(values, device=device)[None, :]
+						self.segmentation_prior[part][type_value] = prior_values
 
 
 	def sample_segmentation(self, N_batch, part_config, part):
@@ -186,13 +200,14 @@ class Segmentation(torch.nn.Module):
 		                                  device=self.device) * self.segments_proportions_stds[part] + self.segments_proportions_means[part] 
 		#We sample the cluster means
 		cluster_means = torch.randn((N_batch, N_segments), device=self.device) * self.segments_means_stds[part] + self.segments_means_means[part] 
-		#We sample the cluster stds
-		cluster_std = self.elu(torch.randn((N_batch, N_segments), device=self.device)*self.segments_stds_stds[part]  + self.segments_stds_means[part] ) + 1
-		#We take the softmax of the proportions to have them positive and summing to one
-		proportions = torch.softmax(cluster_proportions, dim=-1)
-		#We take the log.
+		#We sample the cluster stds: elu(x) + 1, computed as exp(x) for x <= 0 because in float32 elu(x) + 1 cancels to exactly 0
+		#for x < -17.4, and a zero std makes the gradients of the segmentation NaN. The floor keeps the std strictly positive.
+		std_logits = torch.randn((N_batch, N_segments), device=self.device)*self.segments_stds_stds[part]  + self.segments_stds_means[part]
+		cluster_std = torch.clamp(torch.where(std_logits > 0, std_logits + 1, torch.exp(torch.clamp(std_logits, max=0))), min=1e-2)
+		#We take the log of the softmax of the proportions, to have them positive and summing to one
+		log_proportions = torch.log_softmax(cluster_proportions, dim=-1)
 		log_num = -0.5*(residues[None, :, :] - cluster_means[:, None, :])**2/cluster_std[:, None, :]**2 + \
-		      torch.log(proportions[:, None, :])
+		      log_proportions[:, None, :]
 
 		return {"segmentation":torch.softmax(log_num / self.tau_segmentation, dim=-1), "mask":mask}
 

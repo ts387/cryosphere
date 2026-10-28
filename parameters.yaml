@@ -6,13 +6,13 @@ base_structure_path: "base_structure.pdb" #Name of the pdb file of the base stru
 image_yaml: "images.yaml" #Name of the yaml file containing the parameters realted to the images.
 particles_path: "/path/to/particles" # path to the folder containing the mrcs files. Note that this will be appended to the paths in the star file.
 cs_star_file:
-        file: "path/to/star_or_cs_file" #Path to the star or cryosparc file of the experiment.
-	abinit: True #Whether or not the dataset has been obtained through ab-initio reconstruction. Only needed when reading data preprocessed by cryoSparc. If not specified, it is set as False. You may want to change this value.
-	hetrefine: True #Whether or not the dataset has been obtained through heterogeneous refinement. Only needed when reading data preprocessed by cryoSparc. If not specified, it is set to False. You may want to change this value.
+  file: "path/to/star_or_cs_file" #Path to the star or cryosparc file of the experiment.
+  abinit: True #Whether or not the dataset has been obtained through ab-initio reconstruction. Only needed when reading data preprocessed by cryoSparc. If not specified, it is set as False. You may want to change this value.
+  hetrefine: True #Whether or not the dataset has been obtained through heterogeneous refinement. Only needed when reading data preprocessed by cryoSparc. If not specified, it is set to False. You may want to change this value.
 segmentation_config: #Definition of the segmentation
-	part1: #There is only one segmentation: the entire protein.
-		all_protein: True #If all_protein is set to True, there is only one segmentation: the entire protein. If not present or False, the segmentation is local and the chain and start and end residue need to be specified.
-		N_segm: 20 #Number of segments.
+  part1: #There is only one segmentation: the entire protein.
+    all_protein: True #If all_protein is set to True, there is only one segmentation: the entire protein. If not present or False, the segmentation is local and the chain and start and end residue need to be specified.
+    N_segm: 20 #Number of segments.
     segmentation_start:
       type: "uniform" #Starting values of the segmentation: "uniform" means that the means are evenly spanning the range [0, N_residues], the std is set to N_residues/N_segments and proportions are set to one, on average. See source code, model/vae.py to see how it is initialized. Default work well.
     segmentation_prior:
