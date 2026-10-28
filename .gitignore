@@ -2,6 +2,7 @@ wandb/*
 data/dataset/*
 *npy
 *ipynb
+!cryoSPHERE_Colab.ipynb
 */__pycache__/*
 .idea/*
 slurm*
