@@ -50,10 +50,10 @@ def compute_beta_schedule(epoch, N_epochs, loss_parameters):
     if schedule == "constant":
         return loss_parameters.get("beta", 1)
     elif schedule == "linear": 
-        M = loss_parameters.get("M", N_epochs//2)
+        M = loss_parameters.get("M", max(1, N_epochs//2))
         return compute_linear_beta_schedule(epoch, M)
     else:
-        M = loss_parameters.get("M", N_epochs//10)
+        M = loss_parameters.get("M", max(1, N_epochs//10))
         R = loss_parameters.get("R", 0.5)
         return compute_cyclical_beta_schedule(epoch, M, N_epochs, R)
 
@@ -337,7 +337,8 @@ def compute_clashing_distances(new_structures, device, cutoff=4):
     distances = distances[:, triu_indices[0], triu_indices[1]]
     number_clash_per_sample = torch.sum(distances < cutoff, dim=-1)
     distances = torch.minimum((distances - cutoff), torch.zeros_like(distances))**2
-    average_clahing = torch.sum(distances, dim=-1)/number_clash_per_sample
+    #Samples without any clashing pair contribute 0 instead of 0/0.
+    average_clahing = torch.sum(distances, dim=-1)/torch.clamp(number_clash_per_sample, min=1)
     return torch.mean(average_clahing)
 
 

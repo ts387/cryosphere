@@ -146,7 +146,7 @@ class ImageDataSet(Dataset):
         if self.f_mu is None and self.f_std is None:
             f_sub_data = []
             # I have checked that the standard deviation of 10/100/1000 particles is similar
-            for i in range(0, len(self), len(self) // 100):
+            for i in range(0, len(self), max(1, len(self) // 100)):
                 _, _, _, _, fproj = self[i]
                 f_sub_data.append(fproj)
 

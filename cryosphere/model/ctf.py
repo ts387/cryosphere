@@ -100,6 +100,7 @@ class CTF(torch.nn.Module):
 		#values in the optics block and there is only one ctf. Notte that the CTF parameters in the optics groups have precedence on
 		# the ones in the data block.
 
+		optics = df["optics"] if "optics" in df else None
 		if "particles" in df:
 			df = df["particles"]
 
@@ -119,8 +120,15 @@ class CTF(torch.nn.Module):
 
 			if header in overrides:
 				ctf_params[:, i + 2] = overrides[header]
+			elif header in df:
+				ctf_params[:, i + 2] = df[header].values
+			elif optics is not None and header in optics:
+				ctf_params[:, i + 2] = optics.loc[0, header]
+			elif header == "rlnPhaseShift":
+				#Star files written without a phase plate often omit this column: no phase shift.
+				ctf_params[:, i + 2] = 0.0
 			else:
-				ctf_params[:, i + 2] = df[header].values if header in df else None
+				raise ValueError(f"The star file {file} has no {header} column, which is needed to compute the CTF.")
 
 		return cls(*ctf_params[:, :8].T, phaseShift=ctf_params[:, 8], device=device)
 

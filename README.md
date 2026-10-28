@@ -14,6 +14,9 @@ Since cryoSPHERE version 0.5.8, multi-gpu runs have been enabled for both traini
 CUDA_VISIBLE_DEVICES=gpu_id_1, gpu_id_2, ..., gpu_id_n
 ``` 
 right before the cryoSPHERE command you want to use, where gpu_id_1, ... gpu_id_n must be replaced by the integers denoting the devices you want cryoSPHERE to see.
+
+cryoSPHERE's GPU processes communicate through the local network port 12355. To run two cryoSPHERE commands on the same machine at the same time, give the second one another free port in the same way, e.g. `MASTER_PORT=12356 cryosphere_train --experiment_yaml /path/to/parameters.yaml`.
+
 ## Installation
 
 CryoSPHERE is available as a python package named `cryosphere`. Create a conda environment and activate it:

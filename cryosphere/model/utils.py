@@ -42,7 +42,8 @@ def ddp_setup(rank: int, world_size: int):
       world_size: Total number of processes
    """
    os.environ["MASTER_ADDR"] = "localhost"
-   os.environ["MASTER_PORT"] = "12355"
+   #A MASTER_PORT set in the environment wins, so that several cryoSPHERE runs can share a machine.
+   os.environ.setdefault("MASTER_PORT", "12355")
    torch.cuda.set_device(rank)
    init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
@@ -208,7 +209,9 @@ def parse_yaml(path, gpu_id, analyze=False):
         device = "cpu"
 
 
-    logging.basicConfig(filename=os.path.join(path_results, "run.log"), encoding='utf-8', level=logging.DEBUG, filemode='w', format='%(asctime)s %(levelname)s : %(message)s', 
+    #The analysis logs to its own file, so that it does not overwrite the log of the training run.
+    log_file = "analysis.log" if analyze else "run.log"
+    logging.basicConfig(filename=os.path.join(path_results, log_file), encoding='utf-8', level=logging.DEBUG, filemode='w', format='%(asctime)s %(levelname)s : %(message)s', 
         datefmt='%m/%d/%Y %I:%M:%S')
 
     N_images = experiment_settings["N_images"]

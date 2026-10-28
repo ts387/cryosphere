@@ -194,22 +194,24 @@ def sample_latent_variables(gpu_id, world_size, vae, dataset, batch_size, output
         np.save(latent_path, all_latent_variables)
 
 
-def plot_pca(output_path, dim, all_trajectories_pca, z_pca, pca):
+def plot_pca(output_path, dim, trajectory_pca, z_pca, pca):
     """
     Function in charge of plotting the PCA of the latent space with the PC traversals
     :param output_path: str, path to the output directory
     :param dim: intger, dimension along which we generate a traversal.
-    :param all_trajectories_pca: np.array(num_points, N_pc) coordinates of the points sampled during the traversal.
+    :param trajectory_pca: np.array(num_points, N_pc) coordinates of the points sampled during the traversal along dim.
     :param z_pca: np.array(N_latent_variables, PCA_latent_dim) all the latent variables in the PCA coordinate system.
     :param pca: scikit-learn PCA object.
     """
     os.makedirs(os.path.join(output_path, f"pc{dim}/"), exist_ok=True)
-    sns.kdeplot(x=z_pca[:, dim], y=z_pca[:, dim+1], fill=True, clip= (-50, 50))
-    print("TRJACTORIES", all_trajectories_pca[dim][:, :])
-    plt.scatter(x=all_trajectories_pca[dim][:, dim], y=all_trajectories_pca[dim][:, dim+1], c="red")
+    #Plot against the next PC, or the previous one for the last PC.
+    other = dim + 1 if dim + 1 < z_pca.shape[1] else dim - 1
+    sns.kdeplot(x=z_pca[:, dim], y=z_pca[:, other], fill=True, clip= (-50, 50))
+    print("TRJACTORIES", trajectory_pca)
+    plt.scatter(x=trajectory_pca[:, dim], y=trajectory_pca[:, other], c="red")
     plt.title("PCA of the latent space")
     plt.xlabel(f"PC {dim+1}, variance {pca.explained_variance_ratio_[dim]} ")
-    plt.ylabel(f"PC {dim+2}, variance variance {pca.explained_variance_ratio_[dim+1]}")
+    plt.ylabel(f"PC {other+1}, variance {pca.explained_variance_ratio_[other]}")
     plt.savefig(os.path.join(output_path, f"pc{dim}/pca.png"))
     plt.close()
 
@@ -281,16 +283,16 @@ def run_pca_analysis(vae, z, dimensions, num_points, output_path, gmm_repr, base
     if z.shape[-1] > 1:
         all_trajectories, all_trajectories_pca, z_pca, pca = compute_traversals(z[::thinning], dimensions=dimensions, num_points=num_points)
         sns.set_style("white")
-        for dim in dimensions:
-            plot_pca(output_path, dim, all_trajectories_pca, z_pca, pca)
-            predicted_structures = predict_structures(vae, all_trajectories[dim], gmm_repr, segmenter, device)
+        #The trajectories are listed in the order of dimensions, which need not start at PC 0.
+        for i, dim in enumerate(dimensions):
+            plot_pca(output_path, dim, all_trajectories_pca[i], z_pca, pca)
+            predicted_structures = predict_structures(vae, all_trajectories[i], gmm_repr, segmenter, device)
             save_structures_pca(predicted_structures, dim, output_path, base_structure)
 
     else:
             os.makedirs(os.path.join(output_path, f"pc0/"), exist_ok=True)
             all_trajectories = graph_traversal(z, 0, num_points=num_points)
-            z_dim = torch.tensor(all_trajectories, dtype=torch.float32, device=device)
-            predicted_structures = predicted_structures(all_trajectories)
+            predicted_structures = predict_structures(vae, all_trajectories, gmm_repr, segmenter, device)
             save_structures_pca(predicted_structures, 0, output_path, base_structure)
 
 
